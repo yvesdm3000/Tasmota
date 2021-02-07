@@ -286,7 +286,7 @@ void NewHAssDiscovery(void)
   HassDiscoveryRelays(Hass);
 
 #ifdef ESP8266
-    if (TUYA_DIMMER == TasmotaGlobal.module_type || SK03_TUYA == TasmotaGlobal.module_type) { TuyaMod = true; }
+    if (TUYA_DIMMER == TasmotaGlobal.module_type || SK03_TUYA == TasmotaGlobal.module_type || TUYA_THERMOSTAT == TasmotaGlobal.module_type) { TuyaMod = true; }
     if (SONOFF_IFAN02 == TasmotaGlobal.module_type || SONOFF_IFAN03 == TasmotaGlobal.module_type) { iFanMod = true; }
 #endif // ESP8266
 
@@ -414,7 +414,7 @@ void HAssAnnounceRelayLight(void)
         if (PWM_DIMMER == TasmotaGlobal.module_type ) { PwmMod = true; } //
         if (SONOFF_IFAN02 == TasmotaGlobal.module_type || SONOFF_IFAN03 == TasmotaGlobal.module_type) { FanMod = true; }
         if (SONOFF_DUAL == TasmotaGlobal.module_type) { valid_relay = 2; }
-        if (TUYA_DIMMER == TasmotaGlobal.module_type || SK03_TUYA == TasmotaGlobal.module_type) { TuyaMod = true; }
+        if (TUYA_DIMMER == TasmotaGlobal.module_type || SK03_TUYA == TasmotaGlobal.module_type || TUYA_THERMOSTAT == TasmotaGlobal.module_type) { TuyaMod = true; }
   #endif //ESP8266
 
   // If there is a special Light to be enabled and managed with SetOption68 or SetOption37 >= 128, Discovery calculates the maximum number of entities to be generated in advance

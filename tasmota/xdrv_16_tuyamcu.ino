@@ -111,12 +111,14 @@ void (* const TuyaCommand[])(void) PROGMEM = {
 \*********************************************************************************************/
 bool IsModuleTuya(void)
 {
-  return ((TUYA_DIMMER == TasmotaGlobal.module_type) || (SK03_TUYA == TasmotaGlobal.module_type));
+  return ((TUYA_DIMMER == TasmotaGlobal.module_type) 
+    || (SK03_TUYA == TasmotaGlobal.module_type) 
+    || (TUYA_THERMOSTAT == TasmotaGlobal.module_type));
 }
 
 bool AsModuleTuyaMS(void) // ModeSet Layout
 {
-  return ((TasmotaGlobal.light_type > LT_RGB) && TuyaGetDpId(TUYA_MCU_FUNC_MODESET) != 0);
+  return (((TUYA_THERMOSTAT == TasmotaGlobal.module_type ) || (TasmotaGlobal.light_type > LT_RGB)) && TuyaGetDpId(TUYA_MCU_FUNC_MODESET) != 0);
 }
 
 bool TuyaModeSet(void) // ModeSet Status
@@ -711,6 +713,13 @@ void TuyaProcessStatePacket(void) {
         uint8_t dimIndex;
         bool SnsUpdate = false;
 
+        if ( fnId == TUYA_MCU_FUNC_TEMP || fnId == TUYA_MCU_FUNC_TEMPSET) {
+          packetValue += Settings.temp_comp;
+        }
+        if ( fnId == TUYA_MCU_FUNC_HUM || fnId == TUYA_MCU_FUNC_HUMSET) {
+          packetValue += Settings.hum_comp;
+        }
+
         if ((fnId >= TUYA_MCU_FUNC_TEMP) && (fnId <= TUYA_MCU_FUNC_TIMER4)) {      // Sensors start from fnId 71
           if (packetValue != Tuya.Sensors[fnId-71]) {
             Tuya.SensorsValid[fnId-71] = true;
@@ -844,7 +853,7 @@ void TuyaProcessStatePacket(void) {
       else if (Tuya.buffer[dpidStart + 1] == 4) {  // Data Type 4
         const unsigned char *dpData = (unsigned char*)&Tuya.buffer[dpidStart + 4];
 
-        if ((fnId == TUYA_MCU_FUNC_MODESET)) { // Toggle light type
+        if ((fnId == TUYA_MCU_FUNC_MODESET)) { // Toggle mode  (light type for lights, heating mode for thermostat)
           Tuya.ModeSet = dpData[0];
           Tuya.Levels[3] = dpData[0];
         }
@@ -1354,7 +1363,7 @@ bool Xdrv16(uint8_t function)
 {
   bool result = false;
 
-  if (TUYA_DIMMER == TasmotaGlobal.module_type) {
+  if ( (TUYA_DIMMER == TasmotaGlobal.module_type) ||(TUYA_THERMOSTAT == TasmotaGlobal.module_type ) ) {
     switch (function) {
       case FUNC_LOOP:
         if (TuyaSerial) { TuyaSerialInput(); }
