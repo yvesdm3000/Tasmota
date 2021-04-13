@@ -439,7 +439,6 @@ void HAssAnnounceRelayLight(void)
 
   for (uint32_t i = 1; i <= MAX_RELAYS; i++)
   {
-
 #ifdef USE_TUYA_MCU
   TuyaRel = TuyaGetDpId((TUYA_MCU_FUNC_REL1+ i-1) + TasmotaGlobal.active_device - 1);
   TuyaRelInv = TuyaGetDpId((TUYA_MCU_FUNC_REL1_INV+ i-1) + TasmotaGlobal.active_device - 1);
@@ -792,6 +791,77 @@ void HAssAnnounceButtons(void)
   }
 }
 
+void HAssAnnounceThermostat(const char *sensorname, const char *subsensortype, uint8_t subqty, bool nested, const char* SubKey)
+{
+  char stopic[TOPSZ];
+  char stemp1[TOPSZ];
+  char stemp2[TOPSZ];
+  char unique_id[30];
+
+  ResponseClear();  // Clear retained message
+  
+  // Clear or Set topic
+  snprintf_P(unique_id, sizeof(unique_id), PSTR("%06X"), ESP_getChipId());
+  snprintf_P(stopic, sizeof(stopic), PSTR(HOME_ASSISTANT_DISCOVERY_PREFIX "/climate/%s/config"), unique_id);
+ 
+  if (Settings.flag.hass_discovery)
+  {                     // SetOption19 - Control Home Assistantautomatic discovery (See SetOption59)
+
+    char name[TOPSZ]; // friendlyname(33) + " " + sensorname(20?) + " " + sensortype(20?)
+    char prefix[TOPSZ];
+    char *state_topic = stemp1;
+    char *availability_topic = stemp2;
+    TasmotaGlobal.masterlog_level = 0; // Show the new generated topic
+
+    GetTopic_P(state_topic, TELE, TasmotaGlobal.mqtt_topic, PSTR(D_RSLT_SENSOR));
+    snprintf_P(name, sizeof(name), PSTR("%s %s"), SettingsText(SET_DEVICENAME), sensorname);
+    GetTopic_P(availability_topic, TELE, TasmotaGlobal.mqtt_topic, S_LWT);
+
+    Response_P(HASS_DISCOVER_BASE, name, state_topic);
+#ifdef DEEPSLEEP_LWT_HA_DISCOVERY
+    TryResponseAppend_P(HASS_DISCOVER_SENSOR_LWT, availability_topic);
+#else
+    if (Settings.deepsleep == 0)
+      {
+        TryResponseAppend_P(HASS_DISCOVER_SENSOR_LWT, availability_topic);
+      }
+#endif //DEEPSLEEP_LWT_HA_DISCOVERY
+    TryResponseAppend_P(HASS_DISCOVER_DEVICE_INFO_SHORT, unique_id, ESP_getChipId());
+
+
+    char jname[32];
+    int sensor_index = GetCommandCode(jname, sizeof(jname), SubKey, kHAssJsonSensorTypes);
+    if (sensor_index > -1) {
+
+      char param1[20];
+      GetTextIndexed(param1, sizeof(param1), sensor_index, kHAssJsonSensorUnits);
+      switch (sensor_index) {
+        case 0:   // Temperature and DewPoint
+        case 1:
+          snprintf_P(param1, sizeof(param1), PSTR("°%c"),TempUnit()); // C or F
+          break;
+        case 2:   // Pressure and Sea Level Pressure
+        case 3:
+          snprintf_P(param1, sizeof(param1), PSTR("%s"), PressureUnit().c_str());
+          break;
+       }
+      char param2[50];
+      GetTextIndexed(param2, sizeof(param2), sensor_index, kHAssJsonSensorDevCla);
+      TryResponseAppend_P(HASS_DISCOVER_SENSOR, param1, param2, sensorname, subsensortype);
+
+    } else {
+      TryResponseAppend_P(HASS_DISCOVER_SENSOR, " ", "ic\":\"mdi:eye", sensorname, subsensortype);
+    }
+
+    if (nested) { TryResponseAppend_P(PSTR("['%s']"), SubKey); }
+
+    if (subqty != 0) { TryResponseAppend_P(PSTR("[%d]"), subqty -1); }
+
+    TryResponseAppend_P(PSTR("}}\"}"));
+  }
+  MqttPublish(stopic, true);
+}
+
 void HAssAnnounceSensor(const char *sensorname, const char *subsensortype, const char *MultiSubName, uint8_t subqty, bool nested, const char* SubKey)
 {
   char stopic[TOPSZ];
@@ -877,6 +947,8 @@ void HAssAnnounceSensors(void)
     char sensordata[sensordata_len+2];   // dynamically adjust the size
     strcpy(sensordata, TasmotaGlobal.mqtt_data);    // we can use strcpy since the buffer has the right size
 
+    AddLog_P(LOG_LEVEL_INFO, PSTR("HAssAnnounceSensors sensordata_len=%d"), (int)sensordata_len);
+
     // ******************* JSON TEST *******************
     // char sensordata[512];
     // snprintf_P(sensordata, sizeof(sensordata), PSTR("{\"ENERGY\":{\"TotalStartTime\":\"2018-11-23T15:33:47\",\"ExportTariff\":[0.000,0.017],\"Speed\":{\"Act\":\"NE\"}}}"));
@@ -936,6 +1008,24 @@ void HAssAnnounceSensors(void)
         }
       }
     }
+#ifdef USE_TUYA_MCU
+  uint8_t TuyaTemp = TuyaGetDpId((TUYA_MCU_FUNC_TEMP) + TasmotaGlobal.active_device - 1);
+  uint8_t TuyaTempSet = TuyaGetDpId((TUYA_MCU_FUNC_TEMPSET) + TasmotaGlobal.active_device - 1);
+  if (TuyaTemp && TuyaTempSet)
+  {
+    HAssAnnounceThermostat("Thermostat", "TEMP", 0, 0, "TEMP" );
+  } else {
+    if (TuyaTemp)
+    {
+      HAssAnnounceSensor("TEMP", "1", "2", 0, 0, "3" );
+    }
+    if (TuyaTempSet)
+    {
+      HAssAnnounceSensor("TEMPSET", "4", "5", 0, 0, "6" );
+    }
+  }
+#endif //USE_TUYA_MCU
+
     yield();
   } while (hass_xsns_index != 0);
 }
@@ -1043,6 +1133,7 @@ void HAssPublishStatus(void)
 
 void HAssDiscovery(void)
 {
+  AddLog_P(LOG_LEVEL_INFO, PSTR("HAssDiscovery() flag.hass_discovery=%d hass_mode=%d"), (int)Settings.flag.hass_discovery, (int)hass_mode);
   // Configure Tasmota for default Home Assistant parameters to keep discovery message as short as possible
   if (Settings.flag.hass_discovery)
   {                                           // SetOption19 - Control Home Assistant automatic discovery (See SetOption59)
@@ -1083,10 +1174,12 @@ void HAssDiscover(void)
 {
   hass_mode = 1;      // Force discovery
   hass_init_step = 1; // Delayed discovery
+  AddLog_P(LOG_LEVEL_INFO, PSTR("HAssDiscover() flag.hass_discovery=%d hass_mode=%d"), (int)Settings.flag.hass_discovery, (int)hass_mode);
 }
 
 void HAssAnyKey(void)
 {
+  AddLog_P(LOG_LEVEL_INFO, PSTR("HAssAnyKey() flag.hass_discovery=%d hass_mode=%d"), (int)Settings.flag.hass_discovery, (int)hass_mode);
   if (!Settings.flag.hass_discovery) { return; } // SetOption19 - Control Home Assistantautomatic discovery (See SetOption59)
   uint32_t key = (XdrvMailbox.payload >> 16) & 0xFF;   // 0 = KEY_BUTTON, 1 = KEY_SWITCH
   uint32_t device = XdrvMailbox.payload & 0xFF;        // Device number or 1 if more Buttons than Devices

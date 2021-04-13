@@ -170,7 +170,7 @@ void ResponseAppendFeatures(void)
 #if defined(USE_I2C) && defined(USE_PCA9685)
     feature2 |= 0x00004000;  // xdrv_15_pca9685.ino
 #endif
-#if defined(USE_LIGHT) && defined(USE_TUYA_MCU)
+#if defined(USE_TUYA_MCU)
     feature2 |= 0x00008000;  // xdrv_16_tuyadimmer.ino
 #endif
 #ifdef USE_RC_SWITCH

@@ -322,19 +322,23 @@ int StrCmpNoCase(char const *Str1, char const *Str2) // Compare case sensistive 
 
 float TuyaAdjustedTemperature(uint16_t packetValue, uint8_t res)
 {
+  float mult = 1.0;
+  #ifdef USE_TUYA_TEMP_MULT
+    mult = USE_TUYA_TEMP_MULT;
+  #endif
     switch (res)
     {
     case 1:
-        return (float)packetValue / 10.0;
+        return (float)packetValue * mult / 10.0;
         break;
     case 2:
-        return (float)packetValue / 100.0;
+        return (float)packetValue * mult / 100.0;
         break;
     case 3:
-        return (float)packetValue / 1000.0;
+        return (float)packetValue * mult / 1000.0;
         break;    
     default:
-        return (float)packetValue;
+        return (float)packetValue * mult;
         break;
     } 
 }
@@ -1329,14 +1333,14 @@ void TuyaSensorsShow(bool json)
     } else {
       if (TuyaGetDpId(sensor) != 0) {
         switch (sensor) {
-          case 71:
+          case TUYA_MCU_FUNC_TEMP:
             WSContentSend_Temp("", TuyaAdjustedTemperature(Tuya.Sensors[0], Settings.flag2.temperature_resolution));
             break;
-          case 72:
+          case TUYA_MCU_FUNC_TEMPSET:
             WSContentSend_PD(PSTR("{s}" D_TEMPERATURE " Set{m}%s " D_UNIT_DEGREE "%c{e}"),
                             dtostrfd(TuyaAdjustedTemperature(Tuya.Sensors[1], Settings.flag2.temperature_resolution), Settings.flag2.temperature_resolution, tempval), TempUnit());
             break;
-          case 73:
+          case 73: 
             WSContentSend_PD(HTTP_SNS_HUM, "", dtostrfd(Tuya.Sensors[2], Settings.flag2.temperature_resolution, tempval));
             break;
           case 74:

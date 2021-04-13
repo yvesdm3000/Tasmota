@@ -42,7 +42,7 @@
   #define TUYA_DIMMER_ID       0                 // Default dimmer Id
 #endif
 #define USE_TUYA_TIME                           // Add support for Set Time in Tuya MCU
-#define USE_TUYA_TEMP_MULT 5                  // Multiply Tuya temperatures by this value
+#define USE_TUYA_TEMP_MULT 0.5                  // Multiply Tuya temperatures by this value
 #undef USE_ARMTRONIX_DIMMERS                    // Disable support for Armtronix Dimmers (+1k4 code)
 #undef USE_PS_16_DZ                             // Disable support for PS-16-DZ Dimmer (+2k code)
 #undef USE_SONOFF_IFAN                          // Disable support for Sonoff iFan02 and iFan03 (+2k code)
